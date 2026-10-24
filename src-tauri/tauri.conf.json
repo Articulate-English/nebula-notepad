@@ -1,9 +1,9 @@
 {
   "build": {
-    "beforeBuildCommand": "",
+    "beforeBuildCommand": "node scripts/stage-web-assets.js",
     "beforeDevCommand": "",
     "devPath": "../index.html",
-    "distDir": "../"
+    "distDir": "../dist"
   },
   "tauri": {
     "allowlist": {

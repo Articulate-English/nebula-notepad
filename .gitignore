@@ -1,5 +1,6 @@
 src-tauri/target/
 src-tauri/Cargo.lock
+dist/
 .DS_Store
 *.log
 node_modules/

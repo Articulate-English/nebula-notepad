@@ -21,9 +21,18 @@ https://articulate-english.github.io/nebula-notepad/
 ## Desktop Build
 Requires Rust + Tauri:
 ```bash
-cargo install tauri-cli --version 1.5.14 --locked
+cargo install tauri-cli --version 1.6.6 --locked
 cargo tauri build
 ```
+
+`cargo tauri build` runs `scripts/stage-web-assets.js` first (wired as
+`beforeBuildCommand`), which copies the web assets into `dist/`. Tauri refuses a
+`distDir` that contains `src-tauri/`, so the assets are staged into `dist/`
+rather than read from the repo root — that also keeps GitHub Pages serving
+`index.html` from the root unchanged. `dist/` is gitignored.
+
+Binaries land in `src-tauri/target/release/bundle/` (MSI on Windows, DMG on
+macOS, AppImage/deb on Linux). CI builds all three on every push to `main`.
 
 ## Logo Placeholder
 See `logo-placeholder/LOGO_PLACEHOLDER.txt` for the art prompt. Replace files in `icons/` and `screenshots/` before release.
