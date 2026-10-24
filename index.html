@@ -161,7 +161,17 @@
   .note-tab-add { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; background: rgba(155, 89, 255, 0.08); border: 1px dashed rgba(155, 89, 255, 0.2); border-radius: 6px; color: var(--text-dim); font-size: 14px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
   .note-tab-add:hover { background: rgba(155, 89, 255, 0.18); border-color: rgba(155, 89, 255, 0.4); color: var(--text-primary); }
 
-  .note-body { flex: 1; padding: 12px; background: transparent; border: none; color: var(--text-primary); font-size: 14px; line-height: 1.55; resize: none; outline: none; font-family: inherit; overflow-y: auto; }
+  /* Body grows with the note so the whole thing is always writable.
+     The themed scrollbar is hidden until the text passes the bottom edge. */
+  .note-body-container { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .note-body { flex: 1 1 auto; min-height: 140px; max-height: 62vh; padding: 12px; background: transparent; border: none; color: var(--text-primary); font-size: 14px; line-height: 1.55; resize: none; outline: none; font-family: inherit; overflow-y: auto; scrollbar-width: none; scrollbar-color: transparent transparent; }
+  .note-body.can-scroll { scrollbar-width: thin; scrollbar-color: var(--nebula-purple) rgba(155,89,255,0.12); }
+  .note-body::-webkit-scrollbar { width: 0; height: 0; }
+  .note-body.can-scroll::-webkit-scrollbar { width: 10px; }
+  .note-body.can-scroll::-webkit-scrollbar-track { background: rgba(155,89,255,0.10); border-radius: 6px; }
+  .note-body.can-scroll::-webkit-scrollbar-thumb { border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; background-image: linear-gradient(180deg, var(--nebula-purple), var(--nebula-cyan) 55%, var(--nebula-pink)); box-shadow: 0 0 10px rgba(155,89,255,0.55); }
+  .note-body.can-scroll::-webkit-scrollbar-thumb:hover { background-image: linear-gradient(180deg, var(--nebula-cyan), var(--nebula-purple)); }
+  .note-body.can-scroll::-webkit-scrollbar-corner { background: transparent; }
   .note-body.html-body { font-family: 'Consolas', 'Monaco', monospace; white-space: pre-wrap; background: rgba(0,0,0,0.12); border-radius: 8px; }
   .note-body.html-body:empty::before { content: attr(placeholder); color: var(--text-dim); }
   .note-body::placeholder { color: var(--text-dim); }
@@ -275,9 +285,13 @@
     border-radius: 16px;
     min-width: 100%;
   }
-  .notes-area::-webkit-scrollbar { width: 8px; height: 8px; }
-  .notes-area::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 4px; }
-  .notes-area::-webkit-scrollbar-thumb { background: rgba(155,89,255,0.3); border-radius: 4px; }
+  .notes-area { scrollbar-width: none; scrollbar-color: transparent transparent; }
+  .notes-area.can-scroll { scrollbar-width: thin; scrollbar-color: var(--nebula-purple) rgba(155,89,255,0.12); }
+  .notes-area::-webkit-scrollbar { width: 0; height: 0; }
+  .notes-area.can-scroll::-webkit-scrollbar { width: 12px; height: 12px; }
+  .notes-area.can-scroll::-webkit-scrollbar-track { background: rgba(155,89,255,0.10); border-radius: 8px; }
+  .notes-area.can-scroll::-webkit-scrollbar-thumb { border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; background-image: linear-gradient(135deg, var(--nebula-purple), var(--nebula-cyan) 60%, var(--nebula-pink)); box-shadow: 0 0 12px rgba(155,89,255,0.5); }
+  .notes-area.can-scroll::-webkit-scrollbar-thumb:hover { background-image: linear-gradient(135deg, var(--nebula-cyan), var(--nebula-purple)); }
 
   .notes-canvas {
     position: relative;
@@ -309,6 +323,493 @@
     .toolbar-btn { padding: 6px 10px; font-size: 12px; }
     .note-card { width: 260px; min-width: 200px; }
   }
+
+  /* ===== VIEW STACK (Board <-> Canvas) ===== */
+  .view-stack { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .canvas-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .board-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .view-hidden { display: none !important; }
+
+  /* ===== BOARD ===== */
+  .board {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 4px 4px 16px;
+  }
+  .board.can-scroll { scrollbar-width: thin; scrollbar-color: var(--nebula-purple) rgba(155,89,255,0.12); }
+  .board::-webkit-scrollbar { height: 12px; width: 12px; }
+  .board::-webkit-scrollbar-track { background: rgba(155,89,255,0.10); border-radius: 8px; }
+  .board::-webkit-scrollbar-thumb { border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; background-image: linear-gradient(135deg, var(--nebula-purple), var(--nebula-cyan) 60%, var(--nebula-pink)); }
+
+  .list {
+    width: 292px;
+    flex: 0 0 292px;
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .list.drag-over {
+    border-color: var(--nebula-purple);
+    box-shadow: 0 0 0 2px rgba(155,89,255,0.35), var(--glow-purple);
+  }
+  .list-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 12px 8px;
+    flex-shrink: 0;
+  }
+  .list-title {
+    flex: 1;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 16px;
+    font-weight: 600;
+    padding: 6px 8px;
+    outline: none;
+    cursor: text;
+    min-width: 0;
+  }
+  .list-title:hover { border-color: var(--glass-border); }
+  .list-title:focus { border-color: var(--nebula-purple); background: rgba(155,89,255,0.08); }
+  .list-count {
+    font-size: 13px;
+    color: var(--text-dim);
+    background: rgba(155,89,255,0.1);
+    border-radius: 12px;
+    padding: 2px 9px;
+    flex-shrink: 0;
+  }
+  .list-del {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: var(--text-dim);
+    font-size: 15px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s;
+  }
+  .list-del:hover { background: rgba(255,80,80,0.14); color: #ff8080; }
+  .list-cards {
+    flex: 1;
+    min-height: 44px;
+    overflow-y: auto;
+    padding: 4px 10px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--nebula-purple) rgba(155,89,255,0.12);
+  }
+  .list-cards::-webkit-scrollbar { width: 8px; }
+  .list-cards::-webkit-scrollbar-track { background: transparent; }
+  .list-cards::-webkit-scrollbar-thumb { border-radius: 6px; background: rgba(155,89,255,0.35); }
+  .list-cards:empty::after {
+    content: 'No cards yet';
+    font-size: 13px;
+    color: var(--text-dim);
+    padding: 10px 4px;
+  }
+
+  /* ===== BOARD CARD ===== */
+  .board-card {
+    background: var(--bg-card);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .board-card:hover { border-color: var(--nebula-purple); box-shadow: 0 0 18px rgba(155,89,255,0.22); transform: translateY(-1px); }
+  .board-card.dragging { opacity: 0.55; cursor: grabbing; box-shadow: 0 12px 30px rgba(0,0,0,0.5); }
+  .board-card-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.35;
+    word-wrap: break-word;
+  }
+  .board-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .card-labels { display: flex; flex-wrap: wrap; gap: 5px; }
+  .label-chip {
+    min-width: 34px;
+    height: 9px;
+    border-radius: 5px;
+    background: var(--lc, var(--nebula-purple));
+    box-shadow: 0 0 8px var(--lc, var(--nebula-purple));
+  }
+  .label-chip.wide { min-width: 52px; }
+  .label-chip-name {
+    font-size: 12px;
+    color: var(--text-secondary);
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .due-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    padding: 3px 9px;
+    border-radius: 10px;
+    background: rgba(0,255,179,0.12);
+    border: 1px solid rgba(0,255,179,0.25);
+    color: var(--nebula-teal);
+  }
+  .due-badge.overdue { background: rgba(255,80,80,0.14); border-color: rgba(255,80,80,0.35); color: #ff8080; }
+  .due-badge.done { background: rgba(0,255,179,0.22); border-color: var(--nebula-teal); color: var(--nebula-teal); }
+  .checklist-progress {
+    height: 6px;
+    border-radius: 4px;
+    background: rgba(155,89,255,0.14);
+    overflow: hidden;
+  }
+  .checklist-progress > i {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, var(--nebula-purple), var(--nebula-cyan));
+    border-radius: 4px;
+    transition: width 0.25s ease;
+  }
+  .checklist-text { font-size: 12px; color: var(--text-secondary); }
+  .card-move { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .card-move-btn {
+    font-size: 12px;
+    padding: 6px 11px;
+    min-height: 32px;
+    background: rgba(155,89,255,0.1);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .card-move-btn:hover { background: rgba(155,89,255,0.2); color: var(--text-primary); }
+
+  .list-add {
+    margin: 0 10px 10px;
+    padding: 10px 12px;
+    min-height: 44px;
+    background: rgba(155,89,255,0.08);
+    border: 1px dashed var(--glass-border);
+    border-radius: 10px;
+    color: var(--text-secondary);
+    font-size: 15px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .list-add:hover { background: rgba(155,89,255,0.16); color: var(--text-primary); border-color: var(--nebula-purple); }
+  .list-composer {
+    margin: 0 10px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .list-composer input {
+    padding: 9px 12px;
+    background: rgba(0,0,0,0.22);
+    border: 1px solid var(--glass-border);
+    border-radius: 9px;
+    color: var(--text-primary);
+    font-size: 15px;
+    outline: none;
+  }
+  .list-composer input:focus { border-color: var(--nebula-purple); }
+  .composer-actions { display: flex; gap: 8px; }
+  .composer-actions button { flex: 1; min-height: 40px; font-size: 14px; border-radius: 9px; cursor: pointer; border: 1px solid var(--glass-border); }
+  .composer-actions .composer-save { background: var(--nebula-purple); color: #fff; border-color: transparent; font-weight: 600; }
+  .composer-actions .composer-cancel { background: transparent; color: var(--text-secondary); }
+
+  .board-add-list {
+    width: 292px;
+    flex: 0 0 292px;
+    min-height: 48px;
+    padding: 12px;
+    background: rgba(155,89,255,0.08);
+    border: 1px dashed var(--glass-border);
+    border-radius: 16px;
+    color: var(--text-secondary);
+    font-size: 16px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+  }
+  .board-add-list:hover { background: rgba(155,89,255,0.16); color: var(--text-primary); border-color: var(--nebula-purple); }
+
+  /* ===== CARD BACK ===== */
+  .card-back { max-width: 660px; width: 94%; max-height: 86vh; overflow-y: auto; }
+  .card-back-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+  .card-back-title {
+    flex: 1;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 20px;
+    font-weight: 700;
+    padding: 6px 8px;
+    outline: none;
+  }
+  .card-back-title:hover { border-color: var(--glass-border); }
+  .card-back-title:focus { border-color: var(--nebula-purple); background: rgba(155,89,255,0.08); }
+  .card-back-close {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(155,89,255,0.1);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    color: var(--text-secondary);
+    font-size: 17px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .card-back-close:hover { background: rgba(255,80,80,0.16); color: #ff8080; }
+  .card-back-section { margin-bottom: 18px; }
+  .card-back-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+  .label-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .label-pick {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 12px;
+    min-height: 36px;
+    background: rgba(155,89,255,0.07);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .label-pick:hover { border-color: var(--nebula-purple); color: var(--text-primary); }
+  .label-pick.on { border-color: var(--lc); color: var(--text-primary); background: rgba(155,89,255,0.14); box-shadow: 0 0 10px var(--lc); }
+  .label-pick .swatch { width: 16px; height: 16px; border-radius: 5px; background: var(--lc); }
+  .due-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .due-row input[type="date"] {
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.22);
+    border: 1px solid var(--glass-border);
+    border-radius: 9px;
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+  }
+  .due-row input[type="date"]:focus { border-color: var(--nebula-purple); }
+  .checklist-add { display: flex; gap: 8px; margin-bottom: 10px; }
+  .checklist-add input {
+    flex: 1;
+    padding: 9px 12px;
+    background: rgba(0,0,0,0.22);
+    border: 1px solid var(--glass-border);
+    border-radius: 9px;
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+  }
+  .checklist-add input:focus { border-color: var(--nebula-purple); }
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 4px;
+    font-size: 15px;
+  }
+  .check-item input[type="checkbox"] { width: 19px; height: 19px; accent-color: var(--nebula-purple); flex-shrink: 0; }
+  .check-item span { flex: 1; color: var(--text-primary); word-break: break-word; }
+  .check-item.done span { text-decoration: line-through; color: var(--text-dim); }
+  .check-item button {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-dim);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .check-item button:hover { background: rgba(255,80,80,0.14); color: #ff8080; }
+
+  /* ===== BOARD MENU (right drawer) ===== */
+  .menu-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 290;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .menu-backdrop.open { opacity: 1; pointer-events: auto; }
+  .board-menu {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 340px;
+    max-width: 92vw;
+    z-index: 300;
+    background: var(--glass-bg);
+    border-left: 1px solid var(--glass-border);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: -12px 0 40px rgba(0,0,0,0.5);
+    transform: translateX(105%);
+    transition: transform 0.28s ease;
+    display: flex;
+    flex-direction: column;
+  }
+  .board-menu.open { transform: translateX(0); }
+  .board-menu-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px;
+    border-bottom: 1px solid var(--glass-border);
+    flex-shrink: 0;
+  }
+  .board-menu-title {
+    flex: 1;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 17px;
+    font-weight: 700;
+    padding: 6px 8px;
+    outline: none;
+    min-width: 0;
+  }
+  .board-menu-title:hover { border-color: var(--glass-border); }
+  .board-menu-title:focus { border-color: var(--nebula-purple); background: rgba(155,89,255,0.08); }
+  .board-menu-body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 20px; }
+  .menu-section-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+    margin-bottom: 9px;
+  }
+  .menu-search {
+    padding: 9px 13px;
+    background: rgba(0,0,0,0.22);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-size: 15px;
+    outline: none;
+  }
+  .menu-search:focus { border-color: var(--nebula-purple); }
+  .menu-labels { display: flex; flex-wrap: wrap; gap: 8px; }
+  .menu-label-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px;
+    min-height: 34px;
+    background: rgba(155,89,255,0.07);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .menu-label-chip.on { border-color: var(--lc); color: var(--text-primary); box-shadow: 0 0 10px var(--lc); }
+  .menu-label-chip .swatch { width: 14px; height: 14px; border-radius: 4px; background: var(--lc); }
+  .menu-stats { display: flex; flex-direction: column; gap: 7px; }
+  .menu-stat { display: flex; align-items: center; justify-content: space-between; font-size: 14px; color: var(--text-secondary); }
+  .menu-stat b { color: var(--text-primary); font-weight: 600; }
+  .activity-list { display: flex; flex-direction: column; gap: 9px; }
+  .activity-item { font-size: 13px; color: var(--text-secondary); line-height: 1.45; padding-left: 11px; border-left: 2px solid var(--glass-border); }
+  .activity-item time { display: block; font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+  .menu-actions { display: flex; flex-direction: column; gap: 9px; padding: 16px; border-top: 1px solid var(--glass-border); flex-shrink: 0; }
+  .menu-actions button {
+    min-height: 44px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+    background: rgba(155,89,255,0.1);
+    color: var(--text-primary);
+    font-size: 14px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+  }
+  .menu-actions button:hover { background: rgba(155,89,255,0.2); border-color: var(--nebula-purple); }
+
+  /* ===== HEADER EXTRAS ===== */
+  .view-toggle {
+    display: inline-flex;
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .view-toggle button {
+    padding: 7px 12px;
+    min-height: 34px;
+    background: rgba(155,89,255,0.06);
+    border: none;
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .view-toggle button.on { background: var(--nebula-purple); color: #fff; }
+  .view-toggle button:not(.on):hover { background: rgba(155,89,255,0.18); color: var(--text-primary); }
+
+  @media (max-width: 768px) {
+    .app-container { padding: 10px; }
+    .header { padding: 10px 14px; flex-wrap: wrap; gap: 8px; }
+    .title { font-size: 15px; }
+    .toolbar { gap: 6px; padding: 6px 10px; }
+    .toolbar-btn { padding: 6px 10px; font-size: 12px; }
+    .note-card { width: 260px; min-width: 200px; }
+    .board { gap: 12px; padding: 4px 2px 14px; }
+    .list, .board-add-list { width: 84vw; flex-basis: 84vw; }
+    .board-menu { width: 100vw; max-width: 100vw; }
+    .view-toggle button { padding: 6px 9px; font-size: 12px; }
+  }
+  .card-back .note-tabs { padding: 8px 4px; background: transparent; border-bottom: 1px solid var(--glass-border); }
+  .card-back .note-body { max-height: 40vh; }
 </style>
 </head>
 <body>
@@ -326,6 +827,11 @@
       <span class="title">Nebula Notepad</span>
     </div>
     <div class="header-right">
+      <span class="view-toggle" role="group" aria-label="Switch view">
+        <button id="viewBoardBtn" class="on" onclick="setView('board')">▦ Board</button>
+        <button id="viewCanvasBtn" onclick="setView('canvas')">✦ Canvas</button>
+      </span>
+      <button class="header-btn" id="boardMenuBtn" title="Board menu" onclick="toggleBoardMenu()">☰</button>
       <span class="offline-badge" id="offlineBadge">Offline</span>
       <span class="note-count" id="noteCount">0 notes</span>
       <button class="header-btn" id="themeBtn" title="Cycle theme" onclick="cycleTheme()" style="background: var(--nebula-purple); border-color: transparent;">●</button>
@@ -353,19 +859,94 @@
     <input class="search-box" type="text" id="searchBox" placeholder="🔍 Search notes..." oninput="filterNotes()">
   </div>
 
-  <div class="notes-area" id="notesArea">
-    <div class="notes-canvas" id="notesCanvas">
-      <div class="empty-state" id="emptyState">
-        <div class="empty-icon">🌌</div>
-        <div class="empty-title">The cosmos awaits</div>
-        <div class="empty-subtitle">Create your first note to fill the void</div>
-        <button class="toolbar-btn success" onclick="addNote()">
-          <span>＋</span> Create Note
-        </button>
+  <div class="view-stack" id="viewStack">
+    <div class="board-view" id="boardView">
+      <div class="board" id="board"></div>
+    </div>
+    <div class="canvas-view view-hidden" id="canvasView">
+      <div class="notes-area" id="notesArea">
+        <div class="notes-canvas" id="notesCanvas">
+          <div class="empty-state" id="emptyState">
+            <div class="empty-icon">🌌</div>
+            <div class="empty-title">The cosmos awaits</div>
+            <div class="empty-subtitle">Create your first note to fill the void</div>
+            <button class="toolbar-btn success" onclick="addNote()">
+              <span>＋</span> Create Note
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </div>
+
+<div class="modal-overlay" id="cardBackOverlay">
+  <div class="modal card-back">
+    <div class="card-back-head">
+      <input type="text" class="card-back-title" id="cardBackTitle" placeholder="Card title...">
+      <button class="card-back-close" onclick="closeCardBack()" title="Close (Esc)">✕</button>
+    </div>
+    <div class="card-back-section">
+      <div class="card-back-label">Labels</div>
+      <div class="label-grid" id="cardBackLabels"></div>
+    </div>
+    <div class="card-back-section">
+      <div class="card-back-label">Due date</div>
+      <div class="due-row">
+        <input type="date" id="cardBackDue">
+        <button class="card-move-btn" onclick="clearCardBackDue()">Clear date</button>
+        <span class="due-badge" id="cardBackDueState"></span>
+      </div>
+    </div>
+    <div class="card-back-section">
+      <div class="card-back-label">Checklist</div>
+      <div class="checklist-add">
+        <input type="text" id="checklistInput" placeholder="Add a step...">
+        <button class="composer-save" style="flex:0 0 auto;padding:9px 16px;min-height:40px;" onclick="addCheckItem()">Add</button>
+      </div>
+      <div id="cardBackChecklist"></div>
+    </div>
+    <div id="cardBackTabs"></div>
+    <div class="card-back-section">
+      <div class="card-back-label">Description</div>
+      <div id="cardBackBody"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn danger-confirm" onclick="deleteFromCardBack()">Delete card</button>
+      <button class="modal-btn cancel" onclick="closeCardBack()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="menu-backdrop" id="menuBackdrop" onclick="toggleBoardMenu(false)"></div>
+<aside class="board-menu" id="boardMenu" aria-label="Board menu">
+  <div class="board-menu-head">
+    <input type="text" class="board-menu-title" id="boardMenuTitle" placeholder="Board name...">
+    <button class="card-back-close" onclick="toggleBoardMenu(false)" title="Close">✕</button>
+  </div>
+  <div class="board-menu-body">
+    <div>
+      <div class="menu-section-label">Search cards</div>
+      <input type="text" class="menu-search" id="menuSearch" placeholder="Search...">
+    </div>
+    <div>
+      <div class="menu-section-label">Filter by label</div>
+      <div class="menu-labels" id="menuLabels"></div>
+    </div>
+    <div>
+      <div class="menu-section-label">Board stats</div>
+      <div class="menu-stats" id="menuStats"></div>
+    </div>
+    <div>
+      <div class="menu-section-label">Activity</div>
+      <div class="activity-list" id="activityList"></div>
+    </div>
+  </div>
+  <div class="menu-actions">
+    <button onclick="toggleBoardMenu(false); openSettings()">⚙ Settings</button>
+    <button onclick="toggleBoardMenu(false); setView('canvas')">✦ Switch to Canvas</button>
+  </div>
+</aside>
 
 <div class="toast-container" id="toastContainer"></div>
 
@@ -519,7 +1100,7 @@ function drawStars(time) {
 }
 window.addEventListener('resize', () => {
   resizeCanvas();
-  expandCanvas();
+  refreshAllNoteBoxes();
   const c = document.querySelector('.note-card.fullscreen');
   if (c) positionFullscreen(c);
 });
@@ -565,7 +1146,8 @@ function saveSettings() {
     texturedFrames,
     customBgImage,
     overlapEnabled,
-    bgAnimation
+    bgAnimation,
+    view: appSettings.view || 'board'
   }));
 }
 
@@ -596,6 +1178,14 @@ function applyTheme(themeId, persist = true) {
   renderAnimOptions();
   renderNotes();
   if (persist) saveSettings();
+}
+
+// Header theme button — was referenced by onclick but never defined.
+function cycleTheme() {
+  const i = THEMES.findIndex(t => t.id === currentTheme);
+  const next = THEMES[(i + 1) % THEMES.length];
+  applyTheme(next.id);
+  showToast('✦ Theme: ' + next.name);
 }
 
 function applyBgSettings(persist = true) {
@@ -779,17 +1369,19 @@ function colorAttributes(attrs) {
   });
 }
 
-function highlightHtml(id) {
-  const input = document.getElementById(`html-input-${id}`);
-  const out = document.getElementById(`html-highlight-${id}`);
+function highlightHtml(id, key) {
+  const suf = key ? '-' + key : '';
+  const input = document.getElementById(`html-input-${id}${suf}`);
+  const out = document.getElementById(`html-highlight-${id}${suf}`);
   if (!input || !out) return;
   out.innerHTML = highlightHtmlString(input.value);
-  syncHtmlScroll(id);
+  syncHtmlScroll(id, key);
 }
 
-function syncHtmlScroll(id) {
-  const input = document.getElementById(`html-input-${id}`);
-  const out = document.getElementById(`html-highlight-${id}`);
+function syncHtmlScroll(id, key) {
+  const suf = key ? '-' + key : '';
+  const input = document.getElementById(`html-input-${id}${suf}`);
+  const out = document.getElementById(`html-highlight-${id}${suf}`);
   if (input && out) {
     out.scrollTop = input.scrollTop;
     out.scrollLeft = input.scrollLeft;
@@ -802,6 +1394,7 @@ function toggleHtmlMode(id) {
   note.htmlMode = !note.htmlMode;
   saveNotes();
   renderNotes();
+  if (currentCardBackId === id) renderCardBackBody();
 }
 
 function openSettings() {
@@ -857,6 +1450,142 @@ if (notes.length === 0) {
   });
 }
 
+// ===== BOARD DATA MODEL (pure — no DOM access) =====
+const BOARD_KEY = 'nebula-board';
+const ACTIVITY_LIMIT = 200;
+
+function normalizeNote(note) {
+  const n = Object.assign({}, note);
+  if (!Array.isArray(n.labels)) n.labels = [];
+  if (!Array.isArray(n.checklist)) n.checklist = [];
+  n.checklist = n.checklist.map(it => ({
+    text: typeof it === 'string' ? it : (it && it.text) || '',
+    done: !!(it && it.done)
+  }));
+  if (n.due == null) n.due = null;
+  else if (isNaN(new Date(n.due).getTime())) n.due = null;
+  if (n.listId == null) n.listId = null;
+  return n;
+}
+
+function normalizeList(l, i) {
+  return {
+    id: l.id != null ? l.id : i + 1,
+    title: l.title != null ? l.title : 'List',
+    cardIds: Array.isArray(l.cardIds) ? l.cardIds.slice() : []
+  };
+}
+
+function defaultBoard() {
+  return {
+    id: 1,
+    name: 'My Board',
+    lists: [
+      { id: 1, title: 'Inbox', cardIds: [] },
+      { id: 2, title: 'Doing', cardIds: [] },
+      { id: 3, title: 'Done',  cardIds: [] }
+    ],
+    activity: []
+  };
+}
+
+function listById(b, id) {
+  if (!b) return null;
+  return b.lists.find(l => String(l.id) === String(id)) || null;
+}
+
+// Pure migration: gives every note a listId/labels/due/checklist and rebuilds
+// cardIds so lists and notes can never disagree. Idempotent — safe to re-run.
+function migrateBoard(boardState) {
+  const b = (boardState && Array.isArray(boardState.lists) && boardState.lists.length)
+    ? { id: boardState.id || 1,
+        name: boardState.name || 'My Board',
+        lists: boardState.lists.map(normalizeList),
+        activity: Array.isArray(boardState.activity) ? boardState.activity : [] }
+    : defaultBoard();
+  const known = new Set(b.lists.map(l => String(l.id)));
+  const placed = new Set();
+  notes.forEach(n => {
+    n.listId = (n.listId != null && known.has(String(n.listId))) ? n.listId : b.lists[0].id;
+    Object.assign(n, normalizeNote(n));
+    placed.add(n.id);
+  });
+  b.lists.forEach(l => {
+    l.cardIds = l.cardIds.filter(id => placed.has(id));
+    notes.forEach(n => {
+      if (String(n.listId) === String(l.id) && !l.cardIds.includes(n.id)) l.cardIds.push(n.id);
+    });
+  });
+  return b;
+}
+
+function addList(title) {
+  const id = board.lists.reduce((m, l) => Math.max(m, Number(l.id) || 0), 0) + 1;
+  const l = { id: id, title: title || ('List ' + (board.lists.length + 1)), cardIds: [] };
+  board.lists.push(l);
+  return l;
+}
+
+function renameList(id, title) {
+  const l = listById(board, id);
+  if (l) l.title = title;
+  return l;
+}
+
+// Deleting a list moves its cards into the first remaining list — never loses them.
+function deleteList(id) {
+  const idx = board.lists.findIndex(l => String(l.id) === String(id));
+  if (idx < 0 || board.lists.length <= 1) return null;
+  const removed = board.lists.splice(idx, 1)[0];
+  const target = board.lists[0];
+  removed.cardIds.forEach(noteId => {
+    const n = notes.find(x => x.id === noteId);
+    if (n) { n.listId = target.id; if (!target.cardIds.includes(noteId)) target.cardIds.push(noteId); }
+  });
+  return removed;
+}
+
+function reorderLists(newOrder) {
+  const byId = {};
+  board.lists.forEach(l => { byId[String(l.id)] = l; });
+  board.lists = newOrder.map(id => byId[String(id)]).filter(Boolean);
+}
+
+function moveCard(noteId, toListId, toIndex) {
+  const note = notes.find(n => n.id === noteId);
+  const target = listById(board, toListId);
+  if (!note || !target) return false;
+  board.lists.forEach(l => { l.cardIds = l.cardIds.filter(id => id !== noteId); });
+  let idx = Number.isInteger(toIndex) ? toIndex : target.cardIds.length;
+  idx = Math.max(0, Math.min(idx, target.cardIds.length));
+  target.cardIds.splice(idx, 0, noteId);
+  note.listId = target.id;
+  return true;
+}
+
+function recordActivity(text, noteId) {
+  board.activity.unshift({
+    id: Date.now() + Math.random(),
+    ts: Date.now(),
+    text: text,
+    noteId: noteId != null ? noteId : null
+  });
+  if (board.activity.length > ACTIVITY_LIMIT) board.activity.length = ACTIVITY_LIMIT;
+  return board.activity[0];
+}
+// ===== END BOARD DATA MODEL =====
+
+function loadBoard() {
+  try { return JSON.parse(localStorage.getItem(BOARD_KEY) || 'null'); }
+  catch (e) { return null; }
+}
+
+let board = migrateBoard(loadBoard());
+
+function saveBoard() {
+  localStorage.setItem(BOARD_KEY, JSON.stringify(board));
+}
+
 applyTheme(currentTheme, false);
 applyBgSettings(false);
 if (texturedFrames) document.body.classList.add('textured');
@@ -865,6 +1594,7 @@ if (texturedFrames) document.body.classList.add('textured');
 
 function saveNotes() {
   localStorage.setItem('nebula-notepad', JSON.stringify(notes));
+  saveBoard();
   updateNoteCount();
   setTimeout(expandCanvas, 50);
 }
@@ -899,13 +1629,19 @@ function addNote() {
     _y: 20 + (notes.length % 5) * 30
   };
   notes.unshift(note);
+  board.lists[0].cardIds.unshift(note.id);
+  note.listId = board.lists[0].id;
+  recordActivity('Created "' + (note.title || 'Untitled note') + '"', note.id);
   saveNotes();
   renderNotes();
   showToast('✦ New note created');
 }
 
 function deleteNote(id) {
+  const gone = notes.find(n => n.id === id);
   notes = notes.filter(n => n.id !== id);
+  board.lists.forEach(l => { l.cardIds = l.cardIds.filter(c => c !== id); });
+  if (gone) recordActivity('Deleted "' + (gone.title || 'Untitled note') + '"', null);
   saveNotes();
   renderNotes();
 }
@@ -925,14 +1661,43 @@ function duplicateNote(id) {
     _y: (original._y || 0) + 30
   };
   notes.unshift(copy);
+  const list = listById(board, original.listId) || board.lists[0];
+  copy.listId = list.id;
+  const at = list.cardIds.indexOf(id);
+  list.cardIds.splice(at >= 0 ? at + 1 : list.cardIds.length, 0, copy.id);
+  recordActivity('Duplicated "' + (original.title || 'Untitled note') + '"', copy.id);
   saveNotes();
   renderNotes();
+  renderBoard();
   showToast('✦ Note duplicated');
 }
 
 function updateNoteTitle(id, title) {
   const note = notes.find(n => n.id === id);
-  if (note) { note.title = title; note.updated = Date.now(); saveNotes(); }
+  if (note) {
+    const changed = note.title !== title;
+    note.title = title;
+    note.updated = Date.now();
+    if (changed) recordActivity('Renamed to "' + (title || 'Untitled note') + '"', id);
+    saveNotes();
+  }
+}
+
+// Grow the note box to fit its content (never less than 140px), and flag
+// real overflow so the themed scrollbar only appears past the bottom edge.
+function refreshNoteBox(ta) {
+  if (!ta) return;
+  // Drop to the floor first: scrollHeight is never smaller than clientHeight,
+  // so without this the box would measure itself and never shrink back.
+  ta.style.height = '140px';
+  const needed = Math.max(140, Math.ceil(ta.scrollHeight));
+  ta.style.height = needed + 'px';
+  ta.classList.toggle('can-scroll', ta.scrollHeight > ta.clientHeight + 1);
+}
+
+function refreshAllNoteBoxes() {
+  document.querySelectorAll('.note-body').forEach(refreshNoteBox);
+  expandCanvas();
 }
 
 function updateNoteBody(id, body) {
@@ -941,7 +1706,14 @@ function updateNoteBody(id, body) {
     note.tabs[note.activeTab].body = body;
     note.updated = Date.now();
     saveNotes();
-    if (note.htmlMode) highlightHtml(id);
+    if (currentView === 'canvas') {
+      const ta = document.querySelector(`#body-${id} .note-body`);
+      if (ta) refreshNoteBox(ta);
+      expandCanvas();
+    } else {
+      const ta = document.querySelector('#cardBackBody .note-body');
+      if (ta) refreshNoteBox(ta);
+    }
   }
 }
 
@@ -951,6 +1723,7 @@ function switchTab(id, idx) {
   note.activeTab = idx;
   saveNotes();
   renderNotes();
+  if (currentCardBackId === id) renderCardBackBody();
 }
 
 function addTab(id) {
@@ -960,6 +1733,7 @@ function addTab(id) {
   note.activeTab = note.tabs.length - 1;
   saveNotes();
   renderNotes();
+  if (currentCardBackId === id) renderCardBackBody();
 }
 
 function deleteTab(id, idx) {
@@ -969,11 +1743,16 @@ function deleteTab(id, idx) {
   if (note.activeTab >= note.tabs.length) note.activeTab = note.tabs.length - 1;
   saveNotes();
   renderNotes();
+  if (currentCardBackId === id) renderCardBackBody();
 }
 
 function renameTab(id, idx, title) {
   const note = notes.find(n => n.id === id);
-  if (note && note.tabs[idx]) { note.tabs[idx].title = title; saveNotes(); }
+  if (note && note.tabs[idx]) {
+    note.tabs[idx].title = title;
+    saveNotes();
+    if (currentCardBackId === id) renderCardBackBody();
+  }
 }
 
 function toggleTabLock(id, idx) {
@@ -1006,6 +1785,7 @@ function toggleTabLock(id, idx) {
   }
   saveNotes();
   renderNotes();
+  if (currentCardBackId === id) renderCardBackBody();
 }
 
 function autoTileNotes(force = false) {
@@ -1040,6 +1820,9 @@ function expandCanvas() {
     canvas.style.width = '';
     canvas.style.height = '';
   }
+  // The outer scroller only gets its themed bar once notes pass its bottom edge.
+  const area = document.getElementById('notesArea');
+  if (area) area.classList.toggle('can-scroll', area.scrollHeight > area.clientHeight + 1);
 }
 
 let activeDrag = null;
@@ -1073,6 +1856,66 @@ function onUp() {
 document.addEventListener('mousemove', onMove);
 document.addEventListener('mouseup', onUp);
 
+// Shared tab bar — used by canvas cards AND the Trello card back.
+function buildNoteTabs(note, hostEl) {
+  if (!hostEl) return;
+  const lastIdx = note.tabs.length - 1;
+  hostEl.innerHTML = note.tabs.map((t, i) => `
+      <div class="note-tab ${i === note.activeTab ? 'active' : ''}" onclick="switchTab(${note.id}, ${i})">
+        <span contenteditable="true" onblur="renameTab(${note.id}, ${i}, this.textContent)" onclick="event.stopPropagation()">${escapeHtml(t.title || `Tab ${i+1}`)}</span>
+        ${note.tabs.length > 1 ? `<button class="note-tab-close" onclick="event.stopPropagation(); deleteTab(${note.id}, ${i})">×</button>` : ''}
+      </div>
+    `).join('') +
+    `<button class="note-tab-add" onclick="addTab(${note.id})" title="Add tab">+</button>
+     <button class="note-btn lock ${note.tabs[lastIdx].locked ? 'locked' : ''}" title="Lock last tab" onclick="event.stopPropagation(); toggleTabLock(${note.id}, ${lastIdx})">🔒</button>`;
+}
+
+// Shared note body editor. `key` keeps the html-editor ids unique per host so a
+// canvas card and an open card back never fight over the same element id.
+function buildNoteBody(note, hostEl, key) {
+  if (!hostEl) return;
+  hostEl.innerHTML = '';
+  const suf = key ? '-' + key : '';
+  const tab = note.tabs[note.activeTab] || note.tabs[0];
+
+  if (tab && tab.locked) {
+    hostEl.innerHTML = `
+      <div class="locked-tab">
+        <div>🔒 This tab is locked</div>
+        <input type="password" placeholder="Password" id="pw-${note.id}${suf}" onkeydown="if(event.key==='Enter')unlockTab(${note.id})">
+        <button class="toolbar-btn" onclick="unlockTab(${note.id})">Unlock</button>
+      </div>
+    `;
+    return;
+  }
+
+  if (note.htmlMode) {
+    hostEl.innerHTML = `
+      <div class="html-editor-wrap">
+        <textarea class="html-input" id="html-input-${note.id}${suf}" spellcheck="false" placeholder="Write HTML..."></textarea>
+        <pre class="html-highlight" id="html-highlight-${note.id}${suf}"></pre>
+      </div>
+    `;
+    const input = document.getElementById(`html-input-${note.id}${suf}`);
+    const out = document.getElementById(`html-highlight-${note.id}${suf}`);
+    if (input) {
+      input.value = tab.body || '';
+      input.addEventListener('input', () => { updateNoteBody(note.id, input.value); highlightHtml(note.id, key); });
+      input.addEventListener('scroll', () => syncHtmlScroll(note.id, key));
+    }
+    if (out) out.innerHTML = highlightHtmlString(tab.body || '');
+    return;
+  }
+
+  const ta = document.createElement('textarea');
+  ta.className = 'note-body';
+  ta.placeholder = 'Write something cosmic...';
+  ta.value = tab.body || '';
+  ta.addEventListener('input', () => updateNoteBody(note.id, ta.value));
+  hostEl.appendChild(ta);
+  refreshNoteBox(ta);
+}
+
 function renderNotes() {
   const area = document.getElementById('notesArea');
   const search = document.getElementById('searchBox').value.toLowerCase();
@@ -1092,19 +1935,6 @@ function renderNotes() {
     card.style.cssText = `left:${note._x || 20}px; top:${note._y || 20}px; ${getColorStyle(note.color)}`;
     if (overlapEnabled) card.addEventListener('mousedown', e => startDrag(e, note.id));
 
-    const tab = note.tabs[note.activeTab] || note.tabs[0];
-    const isLocked = tab && tab.locked;
-
-    const tabsHtml = note.tabs.map((t, i) => `
-      <div class="note-tab ${i === note.activeTab ? 'active' : ''}" onclick="switchTab(${note.id}, ${i})">
-        <span contenteditable="true" onblur="renameTab(${note.id}, ${i}, this.textContent)" onclick="event.stopPropagation()">${escapeHtml(t.title || `Tab ${i+1}`)}</span>
-        ${note.tabs.length > 1 ? `<button class="note-tab-close" onclick="event.stopPropagation(); deleteTab(${note.id}, ${i})">×</button>` : ''}
-      </div>
-    `).join('');
-
-    const lastIdx = note.tabs.length - 1;
-    const lockHtml = `<button class="note-btn lock ${note.tabs[lastIdx].locked ? 'locked' : ''}" title="Lock last tab" onclick="event.stopPropagation(); toggleTabLock(${note.id}, ${lastIdx})">🔒</button>`;
-
     card.innerHTML = `
       <div class="note-header">
         <input type="text" class="note-title" value="${escapeHtml(note.title)}" placeholder="Note title..." onchange="updateNoteTitle(${note.id}, this.value)">
@@ -1115,11 +1945,7 @@ function renderNotes() {
           <button class="note-btn" title="Delete" onclick="event.stopPropagation(); confirmDelete(${note.id})">🗑</button>
         </div>
       </div>
-      <div class="note-tabs">
-        ${tabsHtml}
-        <button class="note-tab-add" onclick="addTab(${note.id})" title="Add tab">+</button>
-        ${lockHtml}
-      </div>
+      <div class="note-tabs"></div>
       <div class="note-body-container" id="body-${note.id}"></div>
       <div class="note-footer">
         <span>${new Date(note.updated).toLocaleString(undefined, {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</span>
@@ -1127,45 +1953,14 @@ function renderNotes() {
     `;
     canvas.appendChild(card);
 
-    // Render note body via DOM to avoid nested template literal issues
-    const bodyContainer = document.getElementById(`body-${note.id}`);
-    if (bodyContainer) {
-      if (isLocked) {
-        bodyContainer.innerHTML = `
-          <div class="locked-tab">
-            <div>🔒 This tab is locked</div>
-            <input type="password" placeholder="Password" id="pw-${note.id}" onkeydown="if(event.key==='Enter')unlockTab(${note.id})">
-            <button class="toolbar-btn" onclick="unlockTab(${note.id})">Unlock</button>
-          </div>
-        `;
-      } else if (note.htmlMode) {
-        bodyContainer.innerHTML = `
-          <div class="html-editor-wrap">
-            <textarea class="html-input" id="html-input-${note.id}" spellcheck="false" placeholder="Write HTML..."></textarea>
-            <pre class="html-highlight" id="html-highlight-${note.id}"></pre>
-          </div>
-        `;
-        const input = document.getElementById(`html-input-${note.id}`);
-        const out = document.getElementById(`html-highlight-${note.id}`);
-        if (input) {
-          input.value = tab.body || '';
-          input.addEventListener('input', () => { updateNoteBody(note.id, input.value); highlightHtml(note.id); });
-          input.addEventListener('scroll', () => syncHtmlScroll(note.id));
-        }
-        if (out) out.innerHTML = highlightHtmlString(tab.body || '');
-      } else {
-        const ta = document.createElement('textarea');
-        ta.className = 'note-body';
-        ta.placeholder = 'Write something cosmic...';
-        ta.value = tab.body || '';
-        ta.addEventListener('input', () => updateNoteBody(note.id, ta.value));
-        bodyContainer.appendChild(ta);
-      }
-    }
+    // Tabs + body come from the shared builders so the card back renders the
+    // exact same editor instead of a second copy of this markup.
+    buildNoteTabs(note, card.querySelector('.note-tabs'));
+    buildNoteBody(note, document.getElementById(`body-${note.id}`), 'c');
   });
 
   updateNoteCount();
-  setTimeout(expandCanvas, 50);
+  setTimeout(refreshAllNoteBoxes, 50);
 }
 
 function unlockTab(id) {
@@ -1198,8 +1993,11 @@ function confirmDelete(id) {
 function showClearAllModal() {
   showModal('Clear all notes?', 'This will permanently delete every note.', () => {
     notes = [];
+    board.lists.forEach(l => { l.cardIds = []; });
+    recordActivity('Cleared all notes', null);
     saveNotes();
     renderNotes();
+    renderBoard();
     closeModal();
   });
 }
@@ -1225,8 +2023,21 @@ document.getElementById('modalOverlay').addEventListener('click', (e) => {
 });
 
 // ===== EXPORT/IMPORT =====
+// Pure pack/unpack so the export format is unit-testable without a DOM.
+function packExport() {
+  return { app: 'nebula-notepad', version: 2, exportedAt: new Date().toISOString(), notes: notes, board: board };
+}
+
+// Accepts the v2 object OR the legacy bare notes array (backwards compatible).
+function unpackImport(parsed) {
+  const legacyArray = Array.isArray(parsed);
+  const incoming = legacyArray ? { notes: parsed, board: null } : parsed;
+  if (!incoming || !Array.isArray(incoming.notes)) return null;
+  return { notes: incoming.notes, board: legacyArray ? null : incoming.board };
+}
+
 function exportNotes() {
-  const data = JSON.stringify(notes, null, 2);
+  const data = JSON.stringify(packExport(), null, 2);
   const blob = new Blob([data], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1243,12 +2054,14 @@ function importNotes(event) {
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
-      const imported = JSON.parse(e.target.result);
-      if (!Array.isArray(imported)) throw new Error('Invalid format');
-      notes = imported;
+      const unpacked = unpackImport(JSON.parse(e.target.result));
+      if (!unpacked) throw new Error('Invalid format');
+      notes = unpacked.notes;
       noteIdCounter = notes.length > 0 ? Math.max(...notes.map(n => n.id)) + 1 : 1;
+      board = migrateBoard(unpacked.board);
       saveNotes();
       renderNotes();
+      renderBoard();
       showToast(`✦ Imported ${notes.length} notes`);
     } catch (err) {
       showToast('✗ Import failed');
@@ -1259,8 +2072,13 @@ function importNotes(event) {
 }
 
 // ===== SEARCH =====
-function filterNotes() {
+function setSearch(value) {
+  boardSearch = (value || '').toLowerCase();
   renderNotes();
+  if (currentView === 'board') renderBoard();
+}
+function filterNotes() {
+  setSearch(document.getElementById('searchBox').value);
 }
 
 // ===== TOAST =====
@@ -1300,12 +2118,17 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     const newNote = { id: noteIdCounter++, title: clipboardNote.title, tabs: JSON.parse(JSON.stringify(clipboardNote.tabs)), activeTab: 0, color: clipboardNote.color, created: Date.now(), updated: Date.now() };
     notes.unshift(newNote);
+    newNote.listId = board.lists[0].id;
+    board.lists[0].cardIds.unshift(newNote.id);
     if (clipboardCut && noteId != null) { notes = notes.filter(n => n.id !== noteId); clipboardCut = false; }
     saveNotes();
     renderNotes();
+    renderBoard();
     showToast('✦ Note pasted');
   }
   if (e.key === 'Escape') {
+    if (document.getElementById('cardBackOverlay').classList.contains('active')) { closeCardBack(); return; }
+    if (document.getElementById('boardMenu').classList.contains('open')) { toggleBoardMenu(false); return; }
     closeModal();
   }
 });
@@ -1316,9 +2139,509 @@ const resizeObserver = new ResizeObserver(() => {
 });
 resizeObserver.observe(document.getElementById('notesArea'));
 
+// ===== BOARD VIEW =====
+const LABELS = THEMES.map(t => ({ name: t.name, color: t.color }));
+let currentView = appSettings.view || 'board';
+let currentCardBackId = null;
+let boardSearch = '';
+let boardLabelFilter = null;
+let boardDragId = null;
+
+function jsStr(v) { return String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+
+function labelColor(name) {
+  const l = LABELS.find(x => x.name === name);
+  return l ? l.color : 'var(--nebula-purple)';
+}
+
+function formatDate(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function dueState(note) {
+  if (!note.due) return '';
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const d = new Date(note.due + 'T00:00:00');
+  if (isNaN(d.getTime())) return '';
+  return d.getTime() < today.getTime() ? 'overdue' : '';
+}
+
+function checklistRatio(note) {
+  if (!note.checklist.length) return null;
+  const done = note.checklist.filter(i => i.done).length;
+  return { done: done, total: note.checklist.length, pct: Math.round(done / note.checklist.length * 100) };
+}
+
+function noteMatches(note) {
+  const hay = (note.title + ' ' + note.tabs.map(t => t.title + ' ' + t.body).join(' ')).toLowerCase();
+  if (boardSearch && !hay.includes(boardSearch)) return false;
+  if (boardLabelFilter && !note.labels.includes(boardLabelFilter)) return false;
+  return true;
+}
+
+function setView(v) {
+  currentView = v;
+  appSettings.view = v;
+  saveSettings();
+  const isBoard = v === 'board';
+  document.getElementById('boardView').classList.toggle('view-hidden', !isBoard);
+  document.getElementById('canvasView').classList.toggle('view-hidden', isBoard);
+  document.getElementById('viewBoardBtn').classList.toggle('on', isBoard);
+  document.getElementById('viewCanvasBtn').classList.toggle('on', !isBoard);
+  if (isBoard) renderBoard(); else renderNotes();
+  showToast(isBoard ? '✦ Board view' : '✦ Canvas view');
+}
+
+function buildBoardCard(note) {
+  const el = document.createElement('div');
+  el.className = 'board-card';
+  el.dataset.id = note.id;
+  el.draggable = true;
+
+  const labels = note.labels.map(n =>
+    `<span class="label-chip" style="--lc:${labelColor(n)}" title="${escapeHtml(n)}"></span>`).join('');
+
+  let dueHtml = '';
+  if (note.due) {
+    const st = dueState(note);
+    dueHtml = `<span class="due-badge ${st}">◷ ${escapeHtml(formatDate(note.due))}${st === 'overdue' ? ' · overdue' : ''}</span>`;
+  }
+
+  let checkHtml = '';
+  const r = checklistRatio(note);
+  if (r) {
+    checkHtml = `<div class="checklist-text">${r.done}/${r.total} steps</div>
+      <div class="checklist-progress"><i style="width:${r.pct}%"></i></div>`;
+  }
+
+  el.innerHTML = `
+    <div class="board-card-title">${escapeHtml(note.title || 'Untitled note')}</div>
+    <div class="board-card-meta">
+      <div class="card-labels">${labels}</div>
+      ${dueHtml}
+    </div>
+    ${checkHtml}
+    <div class="card-move">
+      <button class="card-move-btn" onclick="event.stopPropagation(); moveCardPrompt(${note.id})">Move ▸</button>
+    </div>
+  `;
+
+  el.addEventListener('click', (e) => {
+    if (e.target.closest('.card-move-btn')) return;
+    openCardBack(note.id);
+  });
+  el.addEventListener('dragstart', (e) => boardDragStart(e, note.id));
+  el.addEventListener('dragend', boardDragEnd);
+  return el;
+}
+
+function renderBoard() {
+  const boardEl = document.getElementById('board');
+  if (!boardEl) return;
+  boardEl.innerHTML = '';
+
+  board.lists.forEach(list => {
+    const cards = list.cardIds
+      .map(id => notes.find(n => n.id === id))
+      .filter(n => n && noteMatches(n));
+
+    const listEl = document.createElement('div');
+    listEl.className = 'list';
+    listEl.dataset.listId = list.id;
+    listEl.innerHTML = `
+      <div class="list-header">
+        <input type="text" class="list-title" value="${escapeHtml(list.title)}" onchange="renameListUi(${list.id}, this.value)">
+        <span class="list-count">${cards.length}</span>
+        <button class="list-del" title="Delete list" onclick="deleteListUi(${list.id})">✕</button>
+      </div>
+      <div class="list-cards"></div>
+      <button class="list-add" onclick="addCardUi(${list.id})">＋ Add a card</button>
+    `;
+    const cardsEl = listEl.querySelector('.list-cards');
+    cards.forEach(note => cardsEl.appendChild(buildBoardCard(note)));
+    boardEl.appendChild(listEl);
+  });
+
+  const addBtn = document.createElement('button');
+  addBtn.className = 'board-add-list';
+  addBtn.textContent = '＋ Add a list';
+  addBtn.onclick = addListUi;
+  boardEl.appendChild(addBtn);
+
+  boardEl.classList.toggle('can-scroll', boardEl.scrollWidth > boardEl.clientWidth + 1);
+}
+
+// --- drag & drop (delegated: renderBoard rebuilds the DOM on every change) ---
+function cardAfterPoint(container, y) {
+  const cards = Array.from(container.querySelectorAll('.board-card:not(.dragging)'));
+  return cards.find(c => {
+    const r = c.getBoundingClientRect();
+    return y < r.top + r.height / 2;
+  }) || null;
+}
+
+function boardDragStart(e, id) {
+  boardDragId = id;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  try { e.dataTransfer.setData('text/plain', String(id)); } catch (err) {}
+}
+
+function boardDragEnd(e) {
+  boardDragId = null;
+  if (e && e.currentTarget) e.currentTarget.classList.remove('dragging');
+  document.querySelectorAll('.list.drag-over').forEach(l => l.classList.remove('drag-over'));
+}
+
+document.getElementById('board').addEventListener('dragover', (e) => {
+  const listEl = e.target.closest('.list');
+  if (!listEl || boardDragId == null) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('.list.drag-over').forEach(l => { if (l !== listEl) l.classList.remove('drag-over'); });
+  listEl.classList.add('drag-over');
+});
+
+document.getElementById('board').addEventListener('drop', (e) => {
+  const listEl = e.target.closest('.list');
+  if (!listEl || boardDragId == null) return;
+  e.preventDefault();
+  const toListId = listEl.dataset.listId;
+  const cardsEl = listEl.querySelector('.list-cards');
+  const after = cardAfterPoint(cardsEl, e.clientY);
+  const idx = after ? Array.from(cardsEl.children).indexOf(after) : cardsEl.children.length;
+  const movedId = boardDragId;
+  if (moveCard(movedId, toListId, idx)) {
+    const note = notes.find(n => n.id === movedId);
+    const target = listById(board, toListId);
+    recordActivity('Moved "' + (note ? (note.title || 'Untitled note') : 'card') + '" to ' + (target ? target.title : 'list'), movedId);
+    saveNotes();
+    renderBoard();
+    if (currentCardBackId === movedId) renderCardBackMeta();
+  }
+  boardDragEnd(null);
+});
+
+// --- keyboard / touch fallback for moving a card ---
+function moveCardPrompt(id) {
+  const note = notes.find(n => n.id === id);
+  if (!note) return;
+  if (board.lists.length < 2) { showToast('✦ Add another list first'); return; }
+  const options = board.lists.map((l, i) => (i + 1) + '. ' + l.title).join('\n');
+  const pick = prompt('Move "' + (note.title || 'Untitled note') + '" to:\n' + options, '1');
+  if (pick === null) return;
+  const idx = parseInt(pick, 10) - 1;
+  if (isNaN(idx) || idx < 0 || idx >= board.lists.length) { showToast('✗ Invalid list'); return; }
+  const target = board.lists[idx];
+  if (moveCard(id, target.id, target.cardIds.length)) {
+    recordActivity('Moved "' + (note.title || 'Untitled note') + '" to ' + target.title, id);
+    saveNotes();
+    renderBoard();
+    if (currentCardBackId === id) renderCardBackMeta();
+    showToast('✦ Moved to ' + target.title);
+  }
+}
+
+// --- list / card composers ---
+function addCardUi(listId) {
+  const listEl = document.querySelector('.list[data-list-id="' + listId + '"]');
+  if (!listEl) return;
+  const btn = listEl.querySelector('.list-add');
+  const composer = document.createElement('div');
+  composer.className = 'list-composer';
+  composer.innerHTML = `
+    <input type="text" placeholder="Card title...">
+    <div class="composer-actions">
+      <button class="composer-save">Add card</button>
+      <button class="composer-cancel">Cancel</button>
+    </div>
+  `;
+  btn.replaceWith(composer);
+  const input = composer.querySelector('input');
+  input.focus();
+  const commit = () => {
+    const title = input.value.trim();
+    if (!title) { renderBoard(); return; }
+    const note = {
+      id: noteIdCounter++, title: title,
+      tabs: [{ title: 'Main', body: '' }], activeTab: 0,
+      color: currentTheme, created: Date.now(), updated: Date.now(),
+      labels: [], due: null, checklist: []
+    };
+    notes.unshift(note);
+    moveCard(note.id, listId, 0);
+    recordActivity('Created "' + title + '" in ' + (listById(board, listId) || {}).title, note.id);
+    saveNotes();
+    renderNotes();
+    renderBoard();
+  };
+  composer.querySelector('.composer-save').onclick = commit;
+  composer.querySelector('.composer-cancel').onclick = () => renderBoard();
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { e.preventDefault(); renderBoard(); }
+  });
+}
+
+function addListUi() {
+  const boardEl = document.getElementById('board');
+  const btn = boardEl.querySelector('.board-add-list');
+  if (!btn) return;
+  const composer = document.createElement('div');
+  composer.className = 'list-composer';
+  composer.style.padding = '0';
+  composer.innerHTML = `
+    <input type="text" placeholder="List name...">
+    <div class="composer-actions">
+      <button class="composer-save">Add list</button>
+      <button class="composer-cancel">Cancel</button>
+    </div>
+  `;
+  btn.replaceWith(composer);
+  const input = composer.querySelector('input');
+  input.focus();
+  const commit = () => {
+    const title = input.value.trim();
+    if (!title) { renderBoard(); return; }
+    addList(title);
+    recordActivity('Added list "' + title + '"', null);
+    saveNotes();
+    renderBoard();
+    boardEl.scrollLeft = boardEl.scrollWidth;
+  };
+  composer.querySelector('.composer-save').onclick = commit;
+  composer.querySelector('.composer-cancel').onclick = () => renderBoard();
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { e.preventDefault(); renderBoard(); }
+  });
+}
+
+function renameListUi(id, title) {
+  const before = (listById(board, id) || {}).title;
+  renameList(id, title);
+  if (before !== undefined && before !== title) recordActivity('Renamed list "' + before + '" to "' + title + '"', null);
+  saveNotes();
+  renderBoard();
+}
+
+function deleteListUi(id) {
+  const l = listById(board, id);
+  if (!l) return;
+  if (board.lists.length <= 1) { showToast('✗ A board needs at least one list'); return; }
+  const moved = l.cardIds.length;
+  deleteList(id);
+  recordActivity('Deleted list "' + l.title + '"' + (moved ? ' (' + moved + ' cards moved)' : ''), null);
+  saveNotes();
+  renderBoard();
+  showToast('✦ List deleted' + (moved ? ' — ' + moved + ' cards moved' : ''));
+}
+
+// --- card back ---
+function openCardBack(id) {
+  const note = notes.find(n => n.id === id);
+  if (!note) return;
+  currentCardBackId = id;
+  document.getElementById('cardBackOverlay').classList.add('active');
+  renderCardBackMeta();
+  renderCardBackBody();
+}
+
+function closeCardBack() {
+  currentCardBackId = null;
+  document.getElementById('cardBackOverlay').classList.remove('active');
+  renderBoard();
+  renderNotes();
+}
+
+function deleteFromCardBack() {
+  const id = currentCardBackId;
+  closeCardBack();
+  confirmDelete(id);
+}
+
+function renderCardBackMeta() {
+  const note = notes.find(n => n.id === currentCardBackId);
+  if (!note) return;
+  const titleEl = document.getElementById('cardBackTitle');
+  if (document.activeElement !== titleEl) titleEl.value = note.title || '';
+
+  document.getElementById('cardBackLabels').innerHTML = LABELS.map(l => {
+    const on = note.labels.includes(l.name);
+    return `<button class="label-pick ${on ? 'on' : ''}" style="--lc:${l.color}" onclick="toggleCardLabel('${jsStr(l.name)}')">
+      <span class="swatch"></span>${escapeHtml(l.name)}</button>`;
+  }).join('');
+
+  const dueEl = document.getElementById('cardBackDue');
+  if (document.activeElement !== dueEl) dueEl.value = note.due || '';
+  const st = dueState(note);
+  const stateEl = document.getElementById('cardBackDueState');
+  if (!note.due) {
+    stateEl.className = 'due-badge';
+    stateEl.textContent = '';
+    stateEl.style.display = 'none';
+  } else {
+    stateEl.style.display = '';
+    stateEl.className = 'due-badge ' + st;
+    stateEl.textContent = st === 'overdue' ? 'Overdue' : 'On track';
+  }
+
+  const r = checklistRatio(note);
+  document.getElementById('cardBackChecklist').innerHTML =
+    (r ? `<div class="checklist-text">${r.done}/${r.total} complete</div>
+      <div class="checklist-progress"><i style="width:${r.pct}%"></i></div>` : '') +
+    note.checklist.map((it, i) => `
+      <div class="check-item ${it.done ? 'done' : ''}">
+        <input type="checkbox" ${it.done ? 'checked' : ''} onchange="toggleCheckItem(${i})">
+        <span>${escapeHtml(it.text)}</span>
+        <button onclick="deleteCheckItem(${i})" title="Remove step">✕</button>
+      </div>
+    `).join('');
+}
+
+function renderCardBackBody() {
+  const note = notes.find(n => n.id === currentCardBackId);
+  if (!note) return;
+  buildNoteTabs(note, document.getElementById('cardBackTabs'));
+  buildNoteBody(note, document.getElementById('cardBackBody'), 'b');
+}
+
+function toggleCardLabel(name) {
+  const note = notes.find(n => n.id === currentCardBackId);
+  if (!note) return;
+  const i = note.labels.indexOf(name);
+  if (i >= 0) { note.labels.splice(i, 1); recordActivity('Removed label ' + name, note.id); }
+  else { note.labels.push(name); recordActivity('Added label ' + name, note.id); }
+  saveNotes();
+  renderCardBackMeta();
+  renderBoard();
+}
+
+function clearCardBackDue() {
+  const note = notes.find(n => n.id === currentCardBackId);
+  if (!note || !note.due) return;
+  note.due = null;
+  note.updated = Date.now();
+  recordActivity('Cleared due date', note.id);
+  saveNotes();
+  renderCardBackMeta();
+  renderBoard();
+}
+
+function addCheckItem() {
+  const note = notes.find(n => n.id === currentCardBackId);
+  const input = document.getElementById('checklistInput');
+  if (!note || !input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  note.checklist.push({ text: text, done: false });
+  note.updated = Date.now();
+  input.value = '';
+  recordActivity('Added step "' + text + '"', note.id);
+  saveNotes();
+  renderCardBackMeta();
+  renderBoard();
+}
+
+function toggleCheckItem(i) {
+  const note = notes.find(n => n.id === currentCardBackId);
+  if (!note || !note.checklist[i]) return;
+  note.checklist[i].done = !note.checklist[i].done;
+  note.updated = Date.now();
+  saveNotes();
+  renderCardBackMeta();
+  renderBoard();
+}
+
+function deleteCheckItem(i) {
+  const note = notes.find(n => n.id === currentCardBackId);
+  if (!note || !note.checklist[i]) return;
+  const gone = note.checklist.splice(i, 1)[0];
+  note.updated = Date.now();
+  recordActivity('Removed step "' + gone.text + '"', note.id);
+  saveNotes();
+  renderCardBackMeta();
+  renderBoard();
+}
+
+// --- board menu drawer ---
+function toggleBoardMenu(force) {
+  const menu = document.getElementById('boardMenu');
+  const backdrop = document.getElementById('menuBackdrop');
+  const open = force != null ? force : !menu.classList.contains('open');
+  menu.classList.toggle('open', open);
+  backdrop.classList.toggle('open', open);
+  if (open) renderMenu();
+}
+
+function filterByLabel(name) {
+  boardLabelFilter = (boardLabelFilter === name) ? null : name;
+  renderMenu();
+  renderBoard();
+}
+
+function renderMenu() {
+  const titleEl = document.getElementById('boardMenuTitle');
+  if (document.activeElement !== titleEl) titleEl.value = board.name || 'My Board';
+
+  const used = new Set();
+  notes.forEach(n => n.labels.forEach(l => used.add(l)));
+  const labelsEl = document.getElementById('menuLabels');
+  labelsEl.innerHTML = used.size
+    ? Array.from(used).map(n =>
+        `<button class="menu-label-chip ${boardLabelFilter === n ? 'on' : ''}" style="--lc:${labelColor(n)}" onclick="filterByLabel('${jsStr(n)}')">
+          <span class="swatch"></span>${escapeHtml(n)}</button>`).join('')
+    : '<span class="label-chip-name">No labels yet — add them from a card</span>';
+
+  document.getElementById('menuStats').innerHTML = board.lists.map(l => {
+    const count = l.cardIds.filter(id => notes.some(n => n.id === id)).length;
+    return `<div class="menu-stat"><span>${escapeHtml(l.title)}</span><b>${count}</b></div>`;
+  }).join('') + `<div class="menu-stat"><span>Total cards</span><b>${notes.length}</b></div>`;
+
+  const actEl = document.getElementById('activityList');
+  actEl.innerHTML = board.activity.length
+    ? board.activity.slice(0, 40).map(a =>
+        `<div class="activity-item">${escapeHtml(a.text)}<time>${new Date(a.ts).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</time></div>`).join('')
+    : '<div class="activity-item">No activity yet.</div>';
+}
+
+// --- card back + menu event wiring ---
+document.getElementById('cardBackTitle').addEventListener('change', (e) => {
+  if (currentCardBackId != null) updateNoteTitle(currentCardBackId, e.target.value);
+  renderCardBackMeta();
+});
+document.getElementById('cardBackDue').addEventListener('change', (e) => {
+  const note = notes.find(n => n.id === currentCardBackId);
+  if (!note) return;
+  note.due = e.target.value || null;
+  note.updated = Date.now();
+  recordActivity(note.due ? 'Set due date ' + formatDate(note.due) : 'Cleared due date', note.id);
+  saveNotes();
+  renderCardBackMeta();
+  renderBoard();
+});
+document.getElementById('checklistInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); addCheckItem(); }
+});
+document.getElementById('cardBackOverlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeCardBack();
+});
+document.getElementById('boardMenuTitle').addEventListener('change', (e) => {
+  board.name = e.target.value.trim() || 'My Board';
+  saveBoard();
+  showToast('✦ Board renamed');
+});
+document.getElementById('menuSearch').addEventListener('input', (e) => {
+  setSearch(e.target.value);
+});
+
 // ===== INIT =====
 autoTileNotes(true);
 renderNotes();
+setView(currentView);
+renderBoard();
 </script>
 </body>
 </html>
