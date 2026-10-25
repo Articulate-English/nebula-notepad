@@ -1625,6 +1625,7 @@ function addNote() {
     color: currentTheme,
     created: Date.now(),
     updated: Date.now(),
+    labels: [], due: null, checklist: [],
     _x: 20 + (notes.length % 5) * 30,
     _y: 20 + (notes.length % 5) * 30
   };
@@ -1634,6 +1635,7 @@ function addNote() {
   recordActivity('Created "' + (note.title || 'Untitled note') + '"', note.id);
   saveNotes();
   renderNotes();
+  renderBoard();
   showToast('✦ New note created');
 }
 
@@ -1644,6 +1646,7 @@ function deleteNote(id) {
   if (gone) recordActivity('Deleted "' + (gone.title || 'Untitled note') + '"', null);
   saveNotes();
   renderNotes();
+  renderBoard();
 }
 
 function duplicateNote(id) {
@@ -1657,6 +1660,9 @@ function duplicateNote(id) {
     color: original.color,
     created: Date.now(),
     updated: Date.now(),
+    labels: Array.isArray(original.labels) ? original.labels.slice() : [],
+    due: original.due || null,
+    checklist: Array.isArray(original.checklist) ? JSON.parse(JSON.stringify(original.checklist)) : [],
     _x: (original._x || 0) + 30,
     _y: (original._y || 0) + 30
   };
@@ -2116,7 +2122,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (isCtrl && e.key === 'v' && clipboardNote != null && !inInput) {
     e.preventDefault();
-    const newNote = { id: noteIdCounter++, title: clipboardNote.title, tabs: JSON.parse(JSON.stringify(clipboardNote.tabs)), activeTab: 0, color: clipboardNote.color, created: Date.now(), updated: Date.now() };
+    const newNote = { id: noteIdCounter++, title: clipboardNote.title, tabs: JSON.parse(JSON.stringify(clipboardNote.tabs)), activeTab: 0, color: clipboardNote.color, created: Date.now(), updated: Date.now(), labels: [], due: null, checklist: [] };
     notes.unshift(newNote);
     newNote.listId = board.lists[0].id;
     board.lists[0].cardIds.unshift(newNote.id);
@@ -2169,7 +2175,7 @@ function dueState(note) {
 }
 
 function checklistRatio(note) {
-  if (!note.checklist.length) return null;
+  if (!Array.isArray(note.checklist) || !note.checklist.length) return null;
   const done = note.checklist.filter(i => i.done).length;
   return { done: done, total: note.checklist.length, pct: Math.round(done / note.checklist.length * 100) };
 }
@@ -2177,7 +2183,7 @@ function checklistRatio(note) {
 function noteMatches(note) {
   const hay = (note.title + ' ' + note.tabs.map(t => t.title + ' ' + t.body).join(' ')).toLowerCase();
   if (boardSearch && !hay.includes(boardSearch)) return false;
-  if (boardLabelFilter && !note.labels.includes(boardLabelFilter)) return false;
+  if (boardLabelFilter && !(Array.isArray(note.labels) ? note.labels : []).includes(boardLabelFilter)) return false;
   return true;
 }
 
@@ -2200,7 +2206,7 @@ function buildBoardCard(note) {
   el.dataset.id = note.id;
   el.draggable = true;
 
-  const labels = note.labels.map(n =>
+  const labels = (Array.isArray(note.labels) ? note.labels : []).map(n =>
     `<span class="label-chip" style="--lc:${labelColor(n)}" title="${escapeHtml(n)}"></span>`).join('');
 
   let dueHtml = '';
@@ -2469,7 +2475,7 @@ function renderCardBackMeta() {
   if (document.activeElement !== titleEl) titleEl.value = note.title || '';
 
   document.getElementById('cardBackLabels').innerHTML = LABELS.map(l => {
-    const on = note.labels.includes(l.name);
+    const on = (Array.isArray(note.labels) ? note.labels : []).includes(l.name);
     return `<button class="label-pick ${on ? 'on' : ''}" style="--lc:${l.color}" onclick="toggleCardLabel('${jsStr(l.name)}')">
       <span class="swatch"></span>${escapeHtml(l.name)}</button>`;
   }).join('');
@@ -2511,6 +2517,7 @@ function renderCardBackBody() {
 function toggleCardLabel(name) {
   const note = notes.find(n => n.id === currentCardBackId);
   if (!note) return;
+  if (!Array.isArray(note.labels)) note.labels = [];
   const i = note.labels.indexOf(name);
   if (i >= 0) { note.labels.splice(i, 1); recordActivity('Removed label ' + name, note.id); }
   else { note.labels.push(name); recordActivity('Added label ' + name, note.id); }
