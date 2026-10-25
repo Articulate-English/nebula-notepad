@@ -1,6 +1,6 @@
 [package]
 name = "nebula-notepad"
-version = "0.1.0"
+version = "0.1.1"
 description = "WTE Nebula Notepad - cosmic themed offline notepad"
 authors = ["William Thomason English"]
 license = "MIT"
