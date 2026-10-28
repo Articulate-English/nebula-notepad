@@ -1,6 +1,6 @@
 {
-  "name": "WTE Nebula Notepad",
-  "short_name": "Nebula Notepad",
+  "name": "WTE Nebula",
+  "short_name": "Nebula",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
