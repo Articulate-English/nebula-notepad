@@ -7,9 +7,9 @@
 <meta name="theme-color" content="#0b0518">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Nebula Notepad">
+<meta name="apple-mobile-web-app-title" content="Nebula">
 <link rel="manifest" href="./manifest.json">
-<title>✦ Nebula Notepad</title>
+<title>✦ Nebula</title>
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
@@ -809,7 +809,9 @@
     .view-toggle button { padding: 6px 9px; font-size: 12px; }
   }
   .card-back .note-tabs { padding: 8px 4px; background: transparent; border-bottom: 1px solid var(--glass-border); }
-  .card-back .note-body { max-height: 40vh; }
+  /* The description fills the card-back width and carries its own bottom-right
+     resize handle, so a long description can be given room without scrolling. */
+  .card-back .note-body { width: 100%; resize: both; min-height: 140px; max-height: 70vh; }
 </style>
 </head>
 <body>
@@ -824,7 +826,7 @@
   <div class="header">
     <div class="header-left">
       <span class="logo">✦</span>
-      <span class="title">Nebula Notepad</span>
+      <span class="title">Nebula</span>
     </div>
     <div class="header-right">
       <span class="view-toggle" role="group" aria-label="Switch view">
@@ -1040,7 +1042,7 @@ function installApp() {
   deferredInstallPrompt.userChoice.then(({ outcome }) => {
     if (outcome === 'accepted') {
       document.getElementById('installBtn').classList.add('hidden');
-      showToast('✦ Nebula Notepad installed');
+      showToast('✦ Nebula installed');
     }
     deferredInstallPrompt = null;
   });
@@ -1415,8 +1417,13 @@ document.getElementById('settingsOverlay').addEventListener('click', (e) => {
 
 // ===== NOTES =====
 let notes = [];
+// Migrate legacy storage key 'nebula-notepad' -> 'nebula' (idempotent, data-preserving).
+if (localStorage.getItem('nebula') === null && localStorage.getItem('nebula-notepad') !== null) {
+  localStorage.setItem('nebula', localStorage.getItem('nebula-notepad'));
+  localStorage.removeItem('nebula-notepad');
+}
 try {
-  notes = JSON.parse(localStorage.getItem('nebula-notepad') || '[]');
+  notes = JSON.parse(localStorage.getItem('nebula') || '[]');
   notes.forEach(n => {
     if (!n.tabs && n.body != null) {
       n.tabs = [{ title: 'Main', body: n.body || '' }];
@@ -1593,7 +1600,7 @@ if (texturedFrames) document.body.classList.add('textured');
   applyAnimation(bgAnimation, false);
 
 function saveNotes() {
-  localStorage.setItem('nebula-notepad', JSON.stringify(notes));
+  localStorage.setItem('nebula', JSON.stringify(notes));
   saveBoard();
   updateNoteCount();
   setTimeout(expandCanvas, 50);
@@ -1701,8 +1708,15 @@ function refreshNoteBox(ta) {
   ta.classList.toggle('can-scroll', ta.scrollHeight > ta.clientHeight + 1);
 }
 
+// The card-back description is hand-resizable (resize: both), so it must be
+// left alone after it is built — re-running the auto-grow would snap the box
+// back to its content height and undo the reader's resize.
+function isHandResizable(ta) {
+  return !!(ta && ta.closest('#cardBackBody'));
+}
+
 function refreshAllNoteBoxes() {
-  document.querySelectorAll('.note-body').forEach(refreshNoteBox);
+  document.querySelectorAll('.note-body').forEach(ta => { if (!isHandResizable(ta)) refreshNoteBox(ta); });
   expandCanvas();
 }
 
@@ -1716,10 +1730,9 @@ function updateNoteBody(id, body) {
       const ta = document.querySelector(`#body-${id} .note-body`);
       if (ta) refreshNoteBox(ta);
       expandCanvas();
-    } else {
-      const ta = document.querySelector('#cardBackBody .note-body');
-      if (ta) refreshNoteBox(ta);
     }
+    // The card-back description is hand-resizable: it keeps the height the
+    // reader chose and scrolls, rather than being snapped back to the content.
   }
 }
 
@@ -1837,6 +1850,13 @@ function startDrag(e, id) {
   const card = document.querySelector(`.note-card[data-id="${id}"]`);
   const note = notes.find(n => n.id === id);
   if (!card || !note) return;
+  // The browser draws its own resize handle over the card's bottom-right corner.
+  // Let it win: starting a note drag here calls preventDefault(), which cancels
+  // the resize gesture and leaves the corner handle feeling dead.
+  if (getComputedStyle(card).resize !== 'none') {
+    const cr = card.getBoundingClientRect();
+    if (e.clientX > cr.right - 24 && e.clientY > cr.bottom - 24) return;
+  }
   activeDrag = { id, card, note, startX: e.clientX, startY: e.clientY, origX: note._x || 0, origY: note._y || 0 };
   card.classList.add('dragging');
   e.preventDefault();
@@ -2031,7 +2051,7 @@ document.getElementById('modalOverlay').addEventListener('click', (e) => {
 // ===== EXPORT/IMPORT =====
 // Pure pack/unpack so the export format is unit-testable without a DOM.
 function packExport() {
-  return { app: 'nebula-notepad', version: 2, exportedAt: new Date().toISOString(), notes: notes, board: board };
+  return { app: 'nebula', version: 2, exportedAt: new Date().toISOString(), notes: notes, board: board };
 }
 
 // Accepts the v2 object OR the legacy bare notes array (backwards compatible).
@@ -2048,7 +2068,7 @@ function exportNotes() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `nebula-notepad-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `nebula-backup-${new Date().toISOString().slice(0,10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
   showToast('✦ Notes exported');
