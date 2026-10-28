@@ -4,7 +4,7 @@ version = "0.1.1"
 description = "WTE Nebula - cosmic themed offline notepad"
 authors = ["William Thomason English"]
 license = "MIT"
-repository = "https://github.com/Eloquenta-English/nebula-notepad"
+repository = "https://github.com/Articulate-English/nebula"
 edition = "2021"
 rust-version = "1.70"
 

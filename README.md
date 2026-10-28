@@ -10,7 +10,7 @@ Two views, switched from the header (remembered between visits):
 Data lives in localStorage (`nebula` for notes, `nebula-board` for lists + activity). Existing notes migrate automatically into the first list — nothing is lost.
 
 ## Live Web App
-https://articulate-english.github.io/nebula-notepad/
+https://articulate-english.github.io/nebula/
 
 ## Install
 - **Desktop (browser):** Open the live link → Chrome/Edge/Safari menu → Install app
